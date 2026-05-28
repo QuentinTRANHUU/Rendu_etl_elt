@@ -11,8 +11,7 @@ Inspiré de l'expérience historique de Robert Axelrod (1981), ce pipeline a ét
 1. [🚀 Installation et Utilisation](#-installation-et-utilisation)
 2. [🏗️ Architecture des Données](#%EF%B8%8F-architecture-des-données)
 3. [📂 Arborescence du Projet](#-arborescence-du-projet)
-9. [Naming Convention (Couche Bronze)](#naming-convention-couche-bronze)
-4. [⚙️ Naming Convention (Couche Bronze)](#-naming-convention-(couche-bronze))
+4. [⚙️ Naming Convention (Couche Bronze)](#naming-convention-couche-bronze)
 5. [📊 Schémas des Tables (Data Lineage)](#-schémas-des-tables-data-lineage)
 6. [⚡ Choix Technologiques & Passage à l'Échelle](#-choix-technologiques--passage-à-léchelle)
 7. [📈 Objectifs de l'Analyse Exploratoire](#-objectifs-de-lanalyse-exploratoire-couche-gold)
@@ -86,7 +85,7 @@ Le projet s'appuie sur le pattern d'architecture **Medallion** (Bronze → Silve
 
 ---
 
-## Naming Convention (Couche Bronze)
+## ⚙️ Naming Convention (Couche Bronze)
 
 Les fichiers générés dans la couche `data/bronze/` suivent une convention de nommage stricte afin de garantir la traçabilité des simulations sans risque d'écrasement (idempotence du pipeline) :
 
