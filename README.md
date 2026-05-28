@@ -48,7 +48,7 @@ RENDU_ETL_ELT/
 
 Pour anticiper une génération massive de données (simulations répétées sur des milliers de tours), **Pandas a été entièrement écarté des phases de transformation au profit de DuckDB**.
 
-* **Optimisation RAM (Out-of-Core) :** DuckDB traite les fichiers Parquet en flux continu (streaming) directement depuis le disque dur. Le pipeline peut ainsi traiter des fichiers de plusieurs dizaines de gigaoctets sans saturation de la mémoire vive de la machine.
+* **Optimisation RAM (Out-of-Core) :** DuckDB s'appuie sur un moteur d'exécution vectorisé. Au lieu de charger l'intégralité des fichiers Parquet en mémoire vive (comme le ferait Pandas), DuckDB traite les données par blocs (vecteurs) directement depuis le disque. Ce pipeline de traitement par lots (Batch) peut ainsi fusionner et transformer des volumes de plusieurs dizaines de gigaoctets sans saturer la RAM de la machine.
 * **Modularité SQL :** L'utilisation de fichiers de requêtes externes (`.sql`) permet de maintenir une logique métier lisible, versionnable et isolée des scripts d'orchestration Python.
 
 ---
@@ -62,7 +62,7 @@ Assure-toi de disposer de Python 3.10+ installé sur ta machine.
 ### 2. Cloner le projet et installer les dépendances
 
 ```bash
-git clone <url-de-ton-depot-github>
+git clone git@github.com:QuentinTRANHUU/Rendu_etl_elt.git
 cd RENDU_ETL_ELT
 pip install -r requirements.txt
 
@@ -81,9 +81,9 @@ cp .env.example .env
 
 Le pipeline doit être exécuté de manière séquentielle en respectant l'ordre suivant :
 
-#### Étape 1 : Génération des simulations (Extraction → Bronze)
+#### Étape 1 : Génération des simulations (Bronze)
 
-Génère les données de tournoi brutes à partir des profils configurés.
+Génère les données brutes de tournoi à partir des profils, règles de jeu et formats de réponses configurés dans ./src/prompts_regles_et_profils.json.
 
 ```bash
 python src/generation_bronze.py
@@ -92,7 +92,7 @@ python src/generation_bronze.py
 
 #### Étape 2 : Nettoyage et Centralisation (Bronze → Silver)
 
-Exécute la logique SQL de traitement incrémental via DuckDB pour alimenter le registre global sans retraiter les sessions déjà intégrées.
+Exécute la logique SQL de traitement incrémental via DuckDB pour alimenter le registre global sans retraiter les sessions déjà intégrées. De nouvelles simulations peuvent ainsi s'ajouter dans le silver depuis le bronze sans retraiter l'ensemble du bronze.
 
 ```bash
 python src/bronze_to_silver.py
@@ -112,7 +112,7 @@ python src/silver_to_gold.py
 
 ## 📊 Objectifs de l'Analyse Exploratoire (Couche Gold)
 
-La couche **Gold** met à disposition d'un Data Analyst trois tables hautement valorisables pour des outils de restitution (Streamlit, PowerBI, Tableau) :
+La couche **Gold** met à disposition d'un Data Analyst trois tables hautement valorisables pour des outils de restitution (tels que Streamlit, PowerBI, Tableau) :
 
 1. **`gold_matrice_confrontations.parquet` :** Calcule les rendements moyens croisés de chaque profil contre chaque profil. Idéal pour afficher la **Heatmap des gains** et identifier visuellement les **Équilibres de Nash**.
 2. **`gold_evolution_temporelle.parquet` :** Agrège les taux de coopération et l'indice de propension à la vengeance tour par tour. Permet de mettre en évidence des **comportements émergents** (effondrement de la coopération en fin de partie).
