@@ -22,6 +22,16 @@ TEMPERATURE_LLM = float(os.getenv("LLM_TEMPERATURE", 0.3))
 CHEMIN_PROMPTS = os.getenv("CHEMIN_PROMPTS_JSON", r"data\prompts_regles_et_profils.json")
 DOSSIER_SORTIE = os.getenv("CHEMIN_DOSSIER_DATA", "data") + "/bronze"
 
+# Récupération de la matrice des gains
+# Définition de la matrice de gains par défaut
+MATRICE_GAINS_DEFAULT = {
+    ("COOPERER", "COOPERER"): (3, 3),
+    ("COOPERER", "TRAHIR"): (0, 5),
+    ("TRAHIR", "COOPERER"): (5, 0),
+    ("TRAHIR", "TRAHIR"): (1, 1)
+}
+MATRICE_GAINS = os.getenv("MATRICE_GAINS", MATRICE_GAINS_DEFAULT)
+
 # Chargement dynamique du fichier JSON des prompts
 with open(CHEMIN_PROMPTS, encoding="utf-8") as f:
     PROMPTS_CONFIG = json.load(f)
@@ -83,14 +93,6 @@ def obtenir_decision_llm(nom_profil, texte_historique_contexte):
     except Exception as e:
         # En cas de plantage total du décodage JSON, on évite le crash du tournoi avec des valeurs propres
         return "COOPERER", f"Erreur de parsing privé (Détail: {str(e)})", f"Erreur de parsing public (Détail: {str(e)})"
-
-# Matrice des gains
-MATRICE_GAINS = {
-    ("COOPERER", "COOPERER"): (3, 3),
-    ("COOPERER", "TRAHIR"): (0, 5),
-    ("TRAHIR", "COOPERER"): (5, 0),
-    ("TRAHIR", "TRAHIR"): (1, 1)
-}
 
 def construire_contexte_historique(tours_passes, pour_joueur_numero):
     """
