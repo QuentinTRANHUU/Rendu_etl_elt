@@ -30,16 +30,14 @@ Assure-toi de disposer de Python 3.10+ installé sur ta machine.
 git clone git@github.com:QuentinTRANHUU/Rendu_etl_elt.git
 cd RENDU_ETL_ELT
 pip install -r requirements.txt
-
 ```
 
 ### 3. Configurer l'environnement
 
-Copie le fichier d'exemple et ajuste les variables si nécessaire (par défaut, les données pointent vers le sous-dossier `data/` du projet) :
+Copie le fichier d'exemple et ajuste les variables si nécessaire. Tu pourras y configurer les paramètres des parties, du LLM et le chemin du dossier data (attention : si tu personnalises ce chemin, fait bien attention à créer les trois sous-dossier `gold`, `silver` et `bronze`) :
 
 ```bash
 cp .env.example .env
-
 ```
 
 ### 4. Exécution du Pipeline de Données
@@ -52,7 +50,6 @@ Génère les données brutes de tournoi à partir des profils, règles de jeu et
 
 ```bash
 python src/generation_bronze.py
-
 ```
 
 #### Étape 2 : Nettoyage et Centralisation (Bronze → Silver)
@@ -61,7 +58,6 @@ Exécute la logique SQL de traitement incrémental via DuckDB pour alimenter le 
 
 ```bash
 python src/bronze_to_silver.py
-
 ```
 
 #### Étape 3 : Calcul des Tables Analytiques (Silver → Gold)
@@ -70,7 +66,6 @@ Génère les tables prêtes pour l'analyse BI et la dataviz.
 
 ```bash
 python src/silver_to_gold.py
-
 ```
 
 ---
@@ -91,7 +86,6 @@ Les fichiers générés dans la couche `data/bronze/` suivent une convention de 
 
 ```text
 simulation_tournoi_[MODELE_LLM]_[NB_TOURS]_tours_[DUREE_MEMOIRE]_memoire_YYYYMMDD_HHMMSS_.parquet
-
 ```
 
 ### Explication des composants :
@@ -130,6 +124,8 @@ simulation_tournoi_[MODELE_LLM]_[NB_TOURS]_tours_[DUREE_MEMOIRE]_memoire_YYYYMMD
 ### 2. Couche Silver (`silver_registre_global`)
 
 Cette table unifie l'ensemble des sessions historiques, binarise les indicateurs pour optimiser les performances de calcul et enrichit les lignes avec des données de contexte.
+
+Note : Si la plupart des paramètres de parties, modifiables dans le .env, seront retranscrit dans de nouvelles colonnes, ce n'est pas le cas de la matrice de gains (qui peut cependant être inféré à partir des gains).
 
 | Nom de la colonne | Type | Description | Exemple / Valeurs |
 | --- | --- | --- | --- |
@@ -179,7 +175,6 @@ RENDU_ETL_ELT/
 ├── .env.example                    <-- Modèle de configuration partagé
 ├── prompts_regles_et_profils.json  <-- Configuration des profils de jeu
 └── requirements.txt                <-- Dépendances strictes du projet
-
 ```
 
 ---
