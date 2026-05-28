@@ -1,0 +1,5 @@
+duckdb==1.5.3
+ollama==0.6.2
+pandas==3.0.3
+python-dotenv==1.2.2
+tqdm==4.67.3

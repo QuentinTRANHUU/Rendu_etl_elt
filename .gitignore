@@ -1,0 +1,9 @@
+# --- Données (Crucial : jamais sur Git) ---
+data/**
+!data/
+!data/bronze/
+!data/silver/
+!data/gold/
+
+# --- Environnement (Crucial : jamais sur Git) ---
+.env
