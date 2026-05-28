@@ -14,6 +14,67 @@ Le projet s'appuie sur le pattern d'architecture **Medallion** (Bronze → Silve
 2. **Couche Silver (Nettoyage & Enrichissement) :** Centralisation incrémentale de toutes les sessions au sein d'un registre global unifié. Les choix textuels sont binarisés (`COOPERER` → 1, `TRAHIR` → 0) et des indicateurs de contexte (calcul du coup précédent via fenêtrage analytique `LAG`) sont calculés de manière transparente.
 3. **Couche Gold (Agrégation Décisionnelle) :** Tables d'agrégations métiers optimisées pour l'analyse décisionnelle et la dataviz (génération de heatmaps, courbes de confiance temporelles et calculs d'équilibres de Nash).
 
+---
+
+## Naming Convention (Couche Bronze)
+
+Les fichiers générés dans la couche `data/bronze/` suivent une convention de nommage stricte afin de garantir la traçabilité des simulations sans risque d'écrasement (idempotence du pipeline) :
+
+```text
+simulation_YYYYMMDD_HHMMSS_[MODELE_LLM]_[PARAM_MEMOIRE].parquet
+
+```
+
+### Explication des composants :
+
+* **`YYYYMMDD_HHMMSS`** : Horodatage précis du lancement du tournoi (Année, Mois, Jour _ Heure, Minute, Seconde). Il sert d'identifiant temporel unique.
+* **`[MODELE_LLM]`** : Le nom du modèle d'IA utilisé pour orchestrer les agents (ex: `gpt4o`, `llama3`, `local`), ou `metier` si la simulation utilise uniquement des stratégies codées en dur.
+* **`[PARAM_MEMOIRE]`** : La taille de la mémoire (nombre de coups précédents retenus) configurée pour ce run (ex: `mem_1`, `mem_5`).
+
+*Exemple de fichier réel :* `simulation_20260528_143022_llama3_mem_3.parquet`
+
+---
+
+## 📊 Schémas des Tables (Data Lineage)
+
+Le passage de la couche Bronze à la couche Silver applique des transformations structurelles et analytiques majeures. Voici la description des schémas cibles :
+
+### 1. Couche Bronze (`bronze_simulations_brutes`)
+
+Cette table contient les logs bruts "bruts de fonderie" issus directement du moteur de jeu.
+
+| Nom de la colonne | Type | Description | Exemple / Valeurs |
+| --- | --- | --- | --- |
+| `id_session` | `VARCHAR` | Identifiant unique (UUID) de la session de tournoi | `f81d4fae-7dec...` |
+| `num_tour` | `INTEGER` | Index du tour actuel au sein de la confrontation | `1`, `2`, `3`... |
+| `agent_1` | `VARCHAR` | Nom du profil / stratégie du premier joueur | `TitForTat` |
+| `agent_2` | `VARCHAR` | Nom du profil / stratégie du second joueur | `AlwaysDefect` |
+| `choix_agent_1` | `VARCHAR` | Action textuelle brute choisie par l'agent 1 | `COOPERER` ou `TRAHIR` |
+| `choix_agent_2` | `VARCHAR` | Action textuelle brute choisie par l'agent 2 | `COOPERER` ou `TRAHIR` |
+| `gain_agent_1` | `INTEGER` | Points d'utilité obtenus par l'agent 1 sur ce tour | `0`, `1`, `3` ou `5` |
+| `gain_agent_2` | `INTEGER` | Points d'utilité obtenus par l'agent 2 sur ce tour | `0`, `1`, `3` ou `5` |
+| `meta_horodatage` | `TIMESTAMP` | Date et heure d'ingestion dans la couche Bronze | `2026-05-28 14:30:22` |
+
+---
+
+### 2. Couche Silver (`silver_registre_global`)
+
+Cette table unifie l'ensemble des sessions historiques, binarise les indicateurs pour optimiser les performances de calcul et enrichit les lignes avec des données de contexte (fenêtrage).
+
+| Nom de la colonne | Type | Description | Transformation / Origine |
+| --- | --- | --- | --- |
+| `id_session` | `VARCHAR` | Identifiant unique de la session | Copie conforme Bronze |
+| `num_tour` | `INTEGER` | Index du tour | Copie conforme Bronze |
+| `agent_1` | `VARCHAR` | Stratégie de l'agent 1 | Idem |
+| `agent_2` | `VARCHAR` | Stratégie de l'agent 2 | Idem |
+| `cooperation_agent_1` | `UTINYINT` | **Binarisation** : `1` si COOPERER, `0` si TRAHIR | `CASE WHEN choix_agent_1 = 'COOPERER' THEN 1...` |
+| `cooperation_agent_2` | `UTINYINT` | **Binarisation** : `1` si COOPERER, `0` si TRAHIR | `CASE WHEN choix_agent_2 = 'COOPERER' THEN 1...` |
+| `gain_agent_1` | `INTEGER` | Points de l'agent 1 | Copie conforme Bronze |
+| `gain_agent_2` | `INTEGER` | Points de l'agent 2 | Copie conforme Bronze |
+| `action_prec_agent_1` | `VARCHAR` | Action jouée par l'agent 1 au tour précédent | **Calculé via** `LAG(choix_agent_1) OVER (...)` |
+| `action_prec_agent_2` | `VARCHAR` | Action jouée par l'agent 2 au tour précédent | **Calculé via** `LAG(choix_agent_2) OVER (...)` |
+| `meta_insertion_silver` | `TIMESTAMP` | Date et heure de traitement par le script Silver | `CURRENT_TIMESTAMP` |
+
 ### 📂 Arborescence du Projet
 
 Conformément aux standards de l'ingénierie de données moderne (typage *dbt*), **la logique de transformation SQL est entièrement découplée de l'infrastructure d'orchestration Python**.
