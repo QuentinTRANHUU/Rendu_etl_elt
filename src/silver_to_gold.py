@@ -60,7 +60,6 @@ def generer_couche_gold():
         charger_et_executer_requete(con, config['sql'], chemin_export, chemin_silver_sql)
 
     print(f"\nCouche GOLD générée avec succès dans '{DOSSIER_GOLD}' !")
-    print("Code hautement modulaire, conforme aux standards industriels du Data Engineering (Type dbt).")
 
 if __name__ == "__main__":
     generer_couche_gold()

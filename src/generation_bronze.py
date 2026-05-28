@@ -6,6 +6,9 @@ import pandas as pd
 from tqdm import tqdm
 from datetime import datetime
 from dotenv import load_dotenv
+import subprocess
+import time
+import requests
 
 # Chargement et configuration via le .env
 load_dotenv()  # Charge les variables du fichier .env situé à la racine
@@ -25,12 +28,13 @@ DOSSIER_SORTIE = os.getenv("CHEMIN_DOSSIER_DATA", "data") + "/bronze"
 # Récupération de la matrice des gains
 # Définition de la matrice de gains par défaut
 MATRICE_GAINS_DEFAULT = {
-    ("COOPERER", "COOPERER"): (3, 3),
-    ("COOPERER", "TRAHIR"): (0, 5),
-    ("TRAHIR", "COOPERER"): (5, 0),
-    ("TRAHIR", "TRAHIR"): (1, 1)
-}
-MATRICE_GAINS = os.getenv("MATRICE_GAINS", MATRICE_GAINS_DEFAULT)
+    "COOPERER,COOPERER":[3,3],
+    "COOPERER,TRAHIR":[0,5],
+    "TRAHIR,COOPERER":[5,0],
+    "TRAHIR,TRAHIR":[1,1]
+    }
+raw_matrix = json.loads(os.getenv("MATRICE_GAINS",MATRICE_GAINS_DEFAULT))
+MATRICE_GAINS = {tuple(k.split(",")): tuple(v) for k, v in raw_matrix.items()}
 
 # Chargement dynamique du fichier JSON des prompts
 with open(CHEMIN_PROMPTS, encoding="utf-8") as f:
@@ -176,11 +180,7 @@ def executer_tournoi(liste_profils):
     Ajoute les colonnes de métadonnées globales de configuration à chaque ligne.
     """
     try:
-        # Récupère la liste de tous les modèles locaux disponibles
-        liste_modeles = ollama.list()
-        # On prend le nom du premier modèle de la liste (ex: "llama3:8b")
-        MODELE_LLM = liste_modeles['models'][0]["model"]
-        print(f"Modèle détecté automatiquement : {MODELE_LLM}")
+        print(f"Modèle utilisé : {MODELE_ENV}")
 
         tous_les_tours_tournoi = []
         
@@ -210,7 +210,7 @@ def executer_tournoi(liste_profils):
         
         # Nettoyage sécurisé du nom du modèle
         modele_propre = (
-            MODELE_LLM.replace(":", "_")
+            MODELE_ENV.replace(":", "_")
             .replace(" ", "_")
             .replace("\\", "_")
             .replace("/", "_")
@@ -230,11 +230,92 @@ def executer_tournoi(liste_profils):
 
     except Exception as e:
         # Valeur de secours si Ollama n'est pas lancé ou est vide
-        print(f"Impossible de trouver un modèle Ollama disponnible, assurez vous qu'un modèle Ollama tourne")
+        print(f"Erreur critique durant le tournoi : {str(e)}")
 
 # Extraction automatique des profils disponibles dans le JSON (en ignorant les clés de config)
 PROFILS_AGENTS = [cle for cle in PROMPTS_CONFIG.keys() if cle not in ["Regles_du_jeu", "Format_reponse"]]
 
+# On vérifie qu'Ollama est bien lancé, on le lance (et on fait les éventuels téléchargements) au besoin
+def init_ollama_environment(model_name=MODELE_ENV):
+    """
+    Vérifie Ollama et le démarre si nécessaire, puis s'assure que le modèle est présent.
+    RETOURNE : Le processus Popen si démarré par le script, sinon None.
+    """
+    print("[Ollama] Vérification du serveur...")
+    ollama_url = "http://localhost:11434/"
+    ollama_process = None
+    server_active = False
+    
+    # 1. On teste si le serveur est déjà actif
+    try:
+        response = requests.get(ollama_url, timeout=3)
+        if response.status_code == 200:
+            print("[Ollama] Le serveur est déjà actif.")
+            server_active = True
+    except requests.exceptions.RequestException:
+        pass
+
+    # 2. Si non détecté, on tente de le démarrer
+    if not server_active:
+        print("[Ollama] Serveur non détecté. Tentative de démarrage automatique...")
+        try:
+            ollama_process = subprocess.Popen(
+                ["ollama", "serve"], 
+                stdout=subprocess.DEVNULL, 
+                stderr=subprocess.DEVNULL
+            )
+            
+            for i in range(6):
+                time.sleep(3)
+                try:
+                    requests.get(ollama_url, timeout=5)
+                    print("[Ollama] Le serveur a démarré avec succès.")
+                    server_active = True
+                    break
+                except requests.exceptions.RequestException:
+                    if i == 5:
+                        raise RuntimeError("Impossible de joindre Ollama après lancement automatique.")
+        except FileNotFoundError:
+            raise FileNotFoundError("La commande 'ollama' est introuvable sur ce système.")
+
+    # 3. Vérification obligatoire du modèle (exécutée TOUT LE TEMPS maintenant)
+    print(f"[Ollama] Vérification du modèle '{model_name}'...")
+    try:
+        check_model = requests.post(f"{ollama_url}api/show", json={"name": model_name})
+        if check_model.status_code != 200:
+            print(f"[Ollama] Téléchargement de '{model_name}' (cela peut prendre quelques minutes)...")
+            subprocess.run(["ollama", "pull", model_name], check=True)
+            print(f"[Ollama] Modèle '{model_name}' téléchargé avec succès.")
+        else:
+            print(f"[Ollama] Modèle '{model_name}' déjà disponible en local.")
+    except Exception as e:
+        print(f"Impossible de vérifier ou télécharger le modèle : {e}")
+        
+    return ollama_process
+
+
+def stop_ollama_environment(ollama_process):
+    """
+    Arrête proprement le processus Ollama s'il a été initié par ce script.
+    """
+    if ollama_process:
+        print("[Ollama] Arrêt du serveur Ollama initié par le script pour libérer la RAM...")
+        ollama_process.terminate()  # Demande une fermeture propre
+        try:
+            ollama_process.wait(timeout=5)
+            print("[Ollama] Serveur arrêté et mémoire libérée.")
+        except subprocess.TimeoutExpired:
+            ollama_process.kill()  # Force l'arrêt si ça bloque
+            print("[Ollama] Serveur tué de force (timeout dépassé).")
+    else:
+        print("[Ollama] Le serveur tournait avant le script, il est laissé actif.")
+
 # Exécution du tournoi à la place d'une partie de test unique
 if __name__ == "__main__":
-    executer_tournoi(PROFILS_AGENTS)
+
+    ollama_proc = init_ollama_environment()
+
+    try :
+        executer_tournoi(PROFILS_AGENTS)
+    finally :
+        stop_ollama_environment(ollama_proc)
