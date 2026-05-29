@@ -1,3 +1,4 @@
+# Python => 3.13.13
 duckdb==1.5.3
 ollama==0.6.2
 pandas==3.0.3

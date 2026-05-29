@@ -22,7 +22,9 @@ Inspiré de l'expérience historique de Robert Axelrod (1981), ce pipeline a ét
 
 ### 1. Prérequis
 
-Assure-toi de disposer de Python 3.10+ installé sur ta machine.
+Assure-toi de disposer de Python 3.13.13 installé sur ta machine.
+
+Installe Ollama `https://ollama.com/download/windows`
 
 ### 2. Cloner le projet et installer les dépendances
 
