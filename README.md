@@ -197,11 +197,3 @@ La couche **Gold** met à disposition d'un Data Analyst trois tables pour des ou
 1. **`gold_matrice_confrontations.parquet` :** Calcule les rendements moyens croisés de chaque profil contre chaque profil. Idéal pour afficher la **Heatmap des gains** et identifier visuellement les **Équilibres de Nash**.
 2. **`gold_evolution_temporelle.parquet` :** Agrège les taux de coopération et l'indice de propension à la vengeance tour par tour. Permet de mettre en évidence des **comportements émergents** (effondrement de la coopération en fin de partie).
 3. **`gold_benchmark_runs.parquet` :** Permet de comparer dynamiquement l'impact des variations d'hyperparamètres (taille de la mémoire des agents, nombre de tours) sur l'efficacité globale des profils (Conformément au **Bonus** d'analyse multi-runs).
-
-Le script visualisation_gold.py est un exemple de visualisation avec streamlit.
-
-Vous pouvez le lancer avec la commande :
-
-```bash
-python -m streamlit run src/visualisation_gold.py
-```
